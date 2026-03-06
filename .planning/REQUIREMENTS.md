@@ -45,18 +45,18 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ICON-01 | Pending | Pending |
-| ICON-02 | Pending | Pending |
-| PACE-01 | Pending | Pending |
-| PACE-02 | Pending | Pending |
-| CLNP-01 | Pending | Pending |
-| CLNP-02 | Pending | Pending |
+| ICON-01 | Phase 1 | Pending |
+| ICON-02 | Phase 3 | Pending |
+| PACE-01 | Phase 2 | Pending |
+| PACE-02 | Phase 3 | Pending |
+| CLNP-01 | Phase 1 | Pending |
+| CLNP-02 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 6 total
-- Mapped to phases: 0
-- Unmapped: 6
+- Mapped to phases: 6
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-05*
-*Last updated: 2026-03-05 after initial definition*
+*Last updated: 2026-03-05 after roadmap creation*

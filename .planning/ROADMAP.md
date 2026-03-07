@@ -12,7 +12,7 @@ Three sequential phases that clean up the existing app, add pacing logic, then w
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Icon and Cleanup** - Monochrome template icon, remove coffee button, fix popover width
+- [x] **Phase 1: Icon and Cleanup** - Monochrome template icon, remove coffee button, fix popover width
 - [ ] **Phase 2: Pacing Calculation** - Linear pacing math in UsageManager
 - [ ] **Phase 3: Pacing Display** - Pacing UI in popover and status bar with formatting
 
@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md -- SF Symbol sparkle icon, remove donation button, fix popover width
+- [x] 01-01-PLAN.md -- SF Symbol sparkle icon, remove donation button, fix popover width
 
 ### Phase 2: Pacing Calculation
 **Goal**: UsageManager computes correct pacing deltas from existing API data
@@ -65,6 +65,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Icon and Cleanup | 0/1 | Planned | - |
+| 1. Icon and Cleanup | 1/1 | Complete | 2026-03-07 |
 | 2. Pacing Calculation | 0/TBD | Not started | - |
 | 3. Pacing Display | 0/TBD | Not started | - |

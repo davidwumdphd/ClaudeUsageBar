@@ -7,7 +7,7 @@
 
 ### Icon
 
-- [ ] **ICON-01**: Menu bar icon uses monochrome template image (auto dark/light mode handling)
+- [x] **ICON-01**: Menu bar icon uses monochrome template image (auto dark/light mode handling)
 - [ ] **ICON-02**: Status bar text uses monospaced digit font to prevent width jitter
 
 ### Pacing
@@ -17,8 +17,8 @@
 
 ### Cleanup
 
-- [ ] **CLNP-01**: Remove "Buy a dev coffee" UI element from popover
-- [ ] **CLNP-02**: Fix popover width inconsistency (320 vs 360)
+- [x] **CLNP-01**: Remove "Buy a dev coffee" UI element from popover
+- [x] **CLNP-02**: Fix popover width inconsistency (320 vs 360)
 
 ## v2 Requirements
 
@@ -45,12 +45,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ICON-01 | Phase 1 | Pending |
+| ICON-01 | Phase 1 | Complete |
 | ICON-02 | Phase 3 | Pending |
 | PACE-01 | Phase 2 | Pending |
 | PACE-02 | Phase 3 | Pending |
-| CLNP-01 | Phase 1 | Pending |
-| CLNP-02 | Phase 1 | Pending |
+| CLNP-01 | Phase 1 | Complete |
+| CLNP-02 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 6 total

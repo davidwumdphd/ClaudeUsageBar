@@ -219,6 +219,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             icon.isTemplate = true
             button.image = icon
         }
+        button.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         button.title = " \(percentage)%"
     }
 }

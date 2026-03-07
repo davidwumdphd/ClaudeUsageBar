@@ -1,4 +1,12 @@
-# Requirements: ClaudeUsageBar
+# Requirements Archive: v1 Usage and Pacing
+
+**Archived:** 2026-03-07
+**Status:** SHIPPED
+
+This is the archived requirements specification for v1.
+For current requirements, see `.planning/REQUIREMENTS.md` (created for next milestone).
+
+---
 
 **Defined:** 2026-03-05
 **Core Value:** At-a-glance visibility into Claude usage and pacing
@@ -19,17 +27,6 @@
 
 - [x] **CLNP-01**: Remove "Buy a dev coffee" UI element from popover
 - [x] **CLNP-02**: Fix popover width inconsistency (320 vs 360)
-
-## v2 Requirements
-
-### Status Bar
-
-- **STAT-01**: Compact pacing text shown in status bar next to icon
-- **STAT-02**: Tooltip with pacing details on hover
-
-### Pacing
-
-- **PACE-03**: Separate pacing display for both 5-hour and 7-day windows
 
 ## Out of Scope
 
@@ -52,11 +49,13 @@
 | CLNP-01 | Phase 1 | Complete |
 | CLNP-02 | Phase 1 | Complete |
 
-**Coverage:**
-- v1 requirements: 6 total
-- Mapped to phases: 6
-- Unmapped: 0
+---
+
+## Milestone Summary
+
+**Shipped:** 6 of 6 v1 requirements
+**Adjusted:** None
+**Dropped:** None
 
 ---
-*Requirements defined: 2026-03-05*
-*Last updated: 2026-03-05 after roadmap creation*
+*Archived: 2026-03-07 as part of v1 milestone completion*

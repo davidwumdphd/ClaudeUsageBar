@@ -53,10 +53,10 @@ Plans:
   1. Popover shows pacing delta near usage bars with color coding (green = under pace, red = over pace)
   2. Status bar text uses monospaced digit font so numbers do not cause width jitter
   3. Pacing text is compact enough to not get truncated on notch MacBooks
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md -- Pacing delta text in popover, monospaced digit font on status bar
 
 ## Progress
 
@@ -67,4 +67,4 @@ Phases execute in numeric order: 1 -> 2 -> 3
 |-------|----------------|--------|-----------|
 | 1. Icon and Cleanup | 1/1 | Complete | 2026-03-07 |
 | 2. Pacing Calculation | 1/1 | Complete | 2026-03-07 |
-| 3. Pacing Display | 0/TBD | Not started | - |
+| 3. Pacing Display | 0/1 | Not started | - |

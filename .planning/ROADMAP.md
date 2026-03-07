@@ -27,10 +27,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. "Buy a dev coffee" button is no longer visible in the popover
   3. Popover content is not horizontally clipped (width values reconciled)
   4. Icon renders crisply on Retina displays (no blurry 1x artifacts)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 01-01: TBD
+- [ ] 01-01-PLAN.md -- SF Symbol sparkle icon, remove donation button, fix popover width
 
 ### Phase 2: Pacing Calculation
 **Goal**: UsageManager computes correct pacing deltas from existing API data
@@ -65,6 +65,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Icon and Cleanup | 0/TBD | Not started | - |
+| 1. Icon and Cleanup | 0/1 | Planned | - |
 | 2. Pacing Calculation | 0/TBD | Not started | - |
 | 3. Pacing Display | 0/TBD | Not started | - |

@@ -267,11 +267,17 @@ class UsageManager: ObservableObject {
     @Published var hasFetchedData: Bool = false
     @Published var isAccessibilityEnabled: Bool = false
     @Published var shortcutEnabled: Bool = true
+    @Published var sessionPacingDelta: Double = 0.0
+    @Published var weeklyPacingDelta: Double = 0.0
+
+    private let fiveHourDuration: TimeInterval = 5 * 60 * 60
+    private let sevenDayDuration: TimeInterval = 7 * 24 * 60 * 60
 
     private var statusItem: NSStatusItem?
     private var sessionCookie: String = ""
     private weak var delegate: AppDelegate?
     private var lastNotifiedThreshold: Int = 0
+    private var pacingTimer: Timer?
 
     init(statusItem: NSStatusItem?, delegate: AppDelegate? = nil) {
         self.statusItem = statusItem
@@ -623,6 +629,30 @@ class UsageManager: ObservableObject {
         sessionPercentage = Double(sessionUsage) / Double(sessionLimit)
         weeklyPercentage = Double(weeklyUsage) / Double(weeklyLimit)
         weeklySonnetPercentage = Double(weeklySonnetUsage) / Double(weeklySonnetLimit)
+    }
+
+    func recalculatePacing() {
+        sessionPacingDelta = calculateDelta(
+            usage: Double(sessionUsage),
+            resetsAt: sessionResetsAt,
+            windowDuration: fiveHourDuration
+        )
+        weeklyPacingDelta = calculateDelta(
+            usage: Double(weeklyUsage),
+            resetsAt: weeklyResetsAt,
+            windowDuration: sevenDayDuration
+        )
+    }
+
+    private func calculateDelta(usage: Double, resetsAt: Date?, windowDuration: TimeInterval) -> Double {
+        guard let resetsAt = resetsAt else { return 0.0 }
+
+        let windowStart = resetsAt.addingTimeInterval(-windowDuration)
+        let elapsed = Date().timeIntervalSince(windowStart)
+        let clampedElapsed = min(max(elapsed, 0), windowDuration)
+        let expectedPercent = (clampedElapsed / windowDuration) * 100.0
+
+        return usage - expectedPercent
     }
 }
 

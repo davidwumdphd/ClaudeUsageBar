@@ -35,7 +35,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Create popover
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 360, height: 260)
+        popover.contentSize = NSSize(width: 360, height: 300)
         popover.behavior = .transient
         popover.contentViewController = NSHostingController(rootView: UsageView(usageManager: usageManager))
 
@@ -848,6 +848,10 @@ struct UsageView: View {
                 Text("\(Int(usageManager.sessionPercentage * 100))% used")
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                Text(formatPacingDelta(usageManager.sessionPacingDelta))
+                    .font(.caption2)
+                    .foregroundColor(pacingColor(usageManager.sessionPacingDelta))
             }
 
             // Weekly Usage
@@ -869,6 +873,10 @@ struct UsageView: View {
                 Text("\(Int(usageManager.weeklyPercentage * 100))% used")
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                Text(formatPacingDelta(usageManager.weeklyPacingDelta))
+                    .font(.caption2)
+                    .foregroundColor(pacingColor(usageManager.weeklyPacingDelta))
             }
 
             // Weekly Sonnet Usage (only show if available)
@@ -1114,6 +1122,28 @@ struct UsageView: View {
             return .orange
         } else {
             return .red
+        }
+    }
+
+    func formatPacingDelta(_ delta: Double) -> String {
+        let rounded = Int(delta.rounded())
+        if rounded > 0 {
+            return "+\(rounded)% ahead of pace"
+        } else if rounded < 0 {
+            return "\(rounded)% behind pace"
+        } else {
+            return "0%"
+        }
+    }
+
+    func pacingColor(_ delta: Double) -> Color {
+        let rounded = Int(delta.rounded())
+        if rounded > 10 {
+            return .red
+        } else if rounded < -10 {
+            return .green
+        } else {
+            return .secondary
         }
     }
 

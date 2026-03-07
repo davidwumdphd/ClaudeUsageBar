@@ -12,7 +12,7 @@
 
 ### Pacing
 
-- [ ] **PACE-01**: Linear pacing calculation comparing % time elapsed vs % usage consumed
+- [x] **PACE-01**: Linear pacing calculation comparing % time elapsed vs % usage consumed
 - [ ] **PACE-02**: Pacing displayed in popover with color coding (green = under pace, red = over pace)
 
 ### Cleanup
@@ -47,7 +47,7 @@
 |-------------|-------|--------|
 | ICON-01 | Phase 1 | Complete |
 | ICON-02 | Phase 3 | Pending |
-| PACE-01 | Phase 2 | Pending |
+| PACE-01 | Phase 2 | Complete |
 | PACE-02 | Phase 3 | Pending |
 | CLNP-01 | Phase 1 | Complete |
 | CLNP-02 | Phase 1 | Complete |

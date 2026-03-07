@@ -1142,7 +1142,7 @@ struct UsageView: View {
         if rounded > 10 {
             return .red
         } else if rounded < -10 {
-            return .green
+            return .primary
         } else {
             return .secondary
         }

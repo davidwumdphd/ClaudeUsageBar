@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Icon and Cleanup** - Monochrome template icon, remove coffee button, fix popover width
 - [x] **Phase 2: Pacing Calculation** - Linear pacing math in UsageManager
-- [ ] **Phase 3: Pacing Display** - Pacing UI in popover and status bar with formatting
+- [x] **Phase 3: Pacing Display** - Pacing UI in popover and status bar with formatting
 
 ## Phase Details
 
@@ -56,7 +56,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 03-01-PLAN.md -- Pacing delta text in popover, monospaced digit font on status bar
+- [x] 03-01-PLAN.md -- Pacing delta text in popover, monospaced digit font on status bar
 
 ## Progress
 
@@ -67,4 +67,4 @@ Phases execute in numeric order: 1 -> 2 -> 3
 |-------|----------------|--------|-----------|
 | 1. Icon and Cleanup | 1/1 | Complete | 2026-03-07 |
 | 2. Pacing Calculation | 1/1 | Complete | 2026-03-07 |
-| 3. Pacing Display | 0/1 | Not started | - |
+| 3. Pacing Display | 1/1 | Complete | 2026-03-07 |

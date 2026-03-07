@@ -8,12 +8,12 @@
 ### Icon
 
 - [x] **ICON-01**: Menu bar icon uses monochrome template image (auto dark/light mode handling)
-- [ ] **ICON-02**: Status bar text uses monospaced digit font to prevent width jitter
+- [x] **ICON-02**: Status bar text uses monospaced digit font to prevent width jitter
 
 ### Pacing
 
 - [x] **PACE-01**: Linear pacing calculation comparing % time elapsed vs % usage consumed
-- [ ] **PACE-02**: Pacing displayed in popover with color coding (green = under pace, red = over pace)
+- [x] **PACE-02**: Pacing displayed in popover with color coding (green = under pace, red = over pace)
 
 ### Cleanup
 
@@ -46,9 +46,9 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ICON-01 | Phase 1 | Complete |
-| ICON-02 | Phase 3 | Pending |
+| ICON-02 | Phase 3 | Complete |
 | PACE-01 | Phase 2 | Complete |
-| PACE-02 | Phase 3 | Pending |
+| PACE-02 | Phase 3 | Complete |
 | CLNP-01 | Phase 1 | Complete |
 | CLNP-02 | Phase 1 | Complete |
 

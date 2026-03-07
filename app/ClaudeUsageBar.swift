@@ -285,6 +285,16 @@ class UsageManager: ObservableObject {
         loadSessionCookie()
         loadSettings()
         checkAccessibilityStatus()
+
+        let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+            self?.recalculatePacing()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        pacingTimer = timer
+    }
+
+    deinit {
+        pacingTimer?.invalidate()
     }
 
     func checkAccessibilityStatus() {
@@ -350,6 +360,7 @@ class UsageManager: ObservableObject {
 
         // Update status bar to show 0%
         delegate?.updateStatusIcon(percentage: 0)
+        recalculatePacing()
 
         NSLog("ClaudeUsage: Cookie cleared, data reset")
     }
@@ -552,6 +563,7 @@ class UsageManager: ObservableObject {
 
             // Update percentage values for progress bars
             updatePercentages()
+            recalculatePacing()
         } catch {
             NSLog("❌ Parse error: \(error.localizedDescription)")
             errorMessage = "Parse error"

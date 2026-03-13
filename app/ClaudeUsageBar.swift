@@ -1106,8 +1106,8 @@ struct UsageView: View {
         let formatter = DateFormatter()
 
         if includeDate {
-            // Format: "on 31 Jan 2026 at 7:59 AM"
-            formatter.dateFormat = "d MMM yyyy 'at' h:mm a"
+            // Format: "on Wed Mar 18 at 7:59 AM"
+            formatter.dateFormat = "EEE MMM d 'at' h:mm a"
             return "on \(formatter.string(from: date))"
         } else {
             formatter.timeStyle = .short

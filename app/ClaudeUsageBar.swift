@@ -279,6 +279,10 @@ class UsageManager: ObservableObject {
     private weak var delegate: AppDelegate?
     private var lastNotifiedThreshold: Int = 0
     private var pacingTimer: Timer?
+    private var lastSessionResetAlertMinutes: Int = 0
+    private var lastWeeklyResetAlertMinutes: Int = 0
+    private var trackedSessionResetsAt: Date?
+    private var trackedWeeklyResetsAt: Date?
 
     init(statusItem: NSStatusItem?, delegate: AppDelegate? = nil) {
         self.statusItem = statusItem
@@ -357,6 +361,10 @@ class UsageManager: ObservableObject {
         hasWeeklySonnet = false
         errorMessage = nil
         lastNotifiedThreshold = 0
+        lastSessionResetAlertMinutes = 0
+        lastWeeklyResetAlertMinutes = 0
+        trackedSessionResetsAt = nil
+        trackedWeeklyResetsAt = nil
         UserDefaults.standard.set(0, forKey: "last_notified_threshold")
 
         // Update status bar to show 0%
@@ -655,6 +663,54 @@ class UsageManager: ObservableObject {
             resetsAt: weeklyResetsAt,
             windowDuration: sevenDayDuration
         )
+        checkResetApproaching()
+    }
+
+    func checkResetApproaching() {
+        guard notificationsEnabled else { return }
+
+        let leadTimes = [60, 30] // minutes before reset
+
+        // Reset tracking when the reset date changes (new window)
+        if sessionResetsAt != trackedSessionResetsAt {
+            trackedSessionResetsAt = sessionResetsAt
+            lastSessionResetAlertMinutes = 0
+        }
+        if weeklyResetsAt != trackedWeeklyResetsAt {
+            trackedWeeklyResetsAt = weeklyResetsAt
+            lastWeeklyResetAlertMinutes = 0
+        }
+
+        if let resetsAt = sessionResetsAt {
+            let minutesLeft = Int(resetsAt.timeIntervalSinceNow / 60)
+            for lead in leadTimes {
+                if minutesLeft <= lead && lastSessionResetAlertMinutes != lead && (lastSessionResetAlertMinutes == 0 || lastSessionResetAlertMinutes > lead) {
+                    sendResetApproachingNotification(label: "5-hour session", minutesLeft: minutesLeft)
+                    lastSessionResetAlertMinutes = lead
+                    break
+                }
+            }
+        }
+
+        if let resetsAt = weeklyResetsAt {
+            let minutesLeft = Int(resetsAt.timeIntervalSinceNow / 60)
+            for lead in leadTimes {
+                if minutesLeft <= lead && lastWeeklyResetAlertMinutes != lead && (lastWeeklyResetAlertMinutes == 0 || lastWeeklyResetAlertMinutes > lead) {
+                    sendResetApproachingNotification(label: "weekly", minutesLeft: minutesLeft)
+                    lastWeeklyResetAlertMinutes = lead
+                    break
+                }
+            }
+        }
+    }
+
+    func sendResetApproachingNotification(label: String, minutesLeft: Int) {
+        let notification = NSUserNotification()
+        notification.title = "Claude Reset Approaching"
+        notification.informativeText = "Your \(label) limit resets in \(minutesLeft) min — use remaining capacity now"
+        notification.soundName = NSUserNotificationDefaultSoundName
+        NSUserNotificationCenter.default.deliver(notification)
+        NSLog("📬 Sent reset approaching notification: \(label) in \(minutesLeft) min")
     }
 
     private func calculateDelta(usage: Double, resetsAt: Date?, windowDuration: TimeInterval) -> Double {

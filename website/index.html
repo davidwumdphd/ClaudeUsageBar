@@ -9,13 +9,13 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="canonical" href="https://claudeusagebar.com/">
-  <title>ClaudeUsageBar – Free Claude Usage Tracker for macOS</title>
-  <meta name="description" content="Free, open-source macOS menu bar app that displays your Claude AI usage percentage. Get notifications before hitting your limit. Lightweight, private, and native.">
+  <title>ClaudeUsageBar – Free Claude & Claude Code Usage Tracker for macOS</title>
+  <meta name="description" content="Free, open-source macOS menu bar app that tracks your Claude and Claude Code usage limits in real time. Get notifications before hitting your limit. Lightweight, private, and native.">
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://claudeusagebar.com/">
-  <meta property="og:title" content="ClaudeUsageBar – Free Claude Usage Tracker for macOS">
-  <meta property="og:description" content="Free, open-source macOS menu bar app that displays your Claude AI usage percentage. Get notifications before hitting your limit. Lightweight, private, and native.">
+  <meta property="og:title" content="ClaudeUsageBar – Free Claude & Claude Code Usage Tracker for macOS">
+  <meta property="og:description" content="Free, open-source macOS menu bar app that tracks your Claude and Claude Code usage limits in real time. Get notifications before hitting your limit. Lightweight, private, and native.">
   <meta property="og:image" content="https://claudeusagebar.com/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -24,8 +24,8 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@maximemb_">
   <meta name="twitter:creator" content="@maximemb_">
-  <meta name="twitter:title" content="ClaudeUsageBar – Free Claude Usage Tracker for macOS">
-  <meta name="twitter:description" content="Free, open-source macOS menu bar app that displays your Claude AI usage percentage. Get notifications before hitting your limit.">
+  <meta name="twitter:title" content="ClaudeUsageBar – Free Claude & Claude Code Usage Tracker for macOS">
+  <meta name="twitter:description" content="Free, open-source macOS menu bar app that tracks your Claude and Claude Code usage limits in real time. Get notifications before hitting your limit.">
   <meta name="twitter:image" content="https://claudeusagebar.com/og-image.png">
   <meta name="twitter:image:width" content="1200">
   <meta name="twitter:image:height" content="630">
@@ -533,6 +533,28 @@
       color: var(--text-muted);
     }
 
+    .usage-status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 0;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .usage-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background-color 0.3s;
+    }
+
+    .usage-status-dot.green  { background: #21c55d; }
+    .usage-status-dot.orange { background: #ff8c42; }
+    .usage-status-dot.red    { background: #ff3b30; }
+
     .usage-popup-footer {
       display: flex;
       justify-content: space-between;
@@ -1012,6 +1034,8 @@
     data-domain="claudeusagebar.com"
     src="https://datafa.st/js/script.js">
   </script>
+  <link rel="stylesheet" href="/nav-status.css">
+  <script src="/nav-status.js" defer></script>
 </head>
 <body style="background-color: #0d0d0f;">
   <div class="ambient"></div>
@@ -1030,7 +1054,8 @@
         <a href="#features">Features</a>
         <a href="#faq">FAQ</a>
         <a href="https://github.com/Artzainnn/ClaudeUsageBar" target="_blank">GitHub</a>
-        <a href="https://github.com/Artzainnn/ClaudeUsageBar/releases/latest/download/ClaudeUsageBar-Installer.dmg" class="nav-cta" data-fast-goal="download_macos">Download</a>
+        <a href="https://github.com/Artzainnn/ClaudeUsageBar/releases/latest/download/ClaudeUsageBar-Installer.dmg" class="nav-cta" data-fast-goal="download_macos"><svg class="download-icon" viewBox="0 0 16 16" width="14" height="14" fill="currentColor" style="margin-right:6px;vertical-align:-2px;"><path d="M8 11.5L4 7.5l1.4-1.4L7 7.7V1h2v6.7l1.6-1.6L12 7.5l-4 4zM2 13h12v2H2v-2z"/></svg>Download</a>
+        <a href="/status" class="nav-status-pill loading" data-nav-status><span class="nav-status-dot loading" data-nav-status></span><span>Claude Status</span></a>
       </div>
       <button class="mobile-menu-toggle" onclick="document.getElementById('mobileMenu').classList.toggle('active')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1042,6 +1067,7 @@
     </div>
   </nav>
   <div id="mobileMenu" class="mobile-menu">
+    <a href="/status" onclick="document.getElementById('mobileMenu').classList.remove('active')">Status</a>
     <a href="#features" onclick="document.getElementById('mobileMenu').classList.remove('active')">Features</a>
     <a href="#faq" onclick="document.getElementById('mobileMenu').classList.remove('active')">FAQ</a>
     <a href="https://github.com/Artzainnn/ClaudeUsageBar" target="_blank" data-fast-goal="view_github">GitHub</a>
@@ -1069,8 +1095,8 @@
       </div>
     </div>
 
-    <h1>Track Your <span>Claude</span> Usage</h1>
-    <p class="hero-subtitle">A minimal macOS menu bar app that shows your Claude usage percentage at a glance. Never hit your limit unexpectedly again.</p>
+    <h1>Track Your <span>Claude Code</span> Usage</h1>
+    <p class="hero-subtitle">A minimal macOS menu bar app that tracks your Claude and Claude Code usage limits at a glance. Never hit your rate limit unexpectedly again.</p>
 
     <div class="hero-cta">
       <div class="hero-buttons">
@@ -1171,6 +1197,11 @@
                 <span class="usage-section-percent" id="weeklyPercent">82% used</span>
               </div>
 
+              <div class="usage-status-row" id="statusRow">
+                <span class="usage-status-dot green" id="statusDot"></span>
+                <span id="statusLabel">All Claude services operational</span>
+              </div>
+
               <div class="usage-popup-footer">
                 <span id="lastUpdated">Last updated: 11:22 AM</span>
                 <span class="usage-popup-refresh" id="refreshBtn" onclick="refreshUsage()">Refresh</span>
@@ -1219,12 +1250,11 @@
       <div class="feature-card">
         <div class="feature-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12 6 12 12 16 14"/>
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
           </svg>
         </div>
-        <h3>Reset Countdown</h3>
-        <p>Always know exactly when your usage resets. Plan your work around your available capacity.</p>
+        <h3>Live Claude status</h3>
+        <p>Know when Claude.ai, the API, or Code is down. Color-coded indicator in the popup with smart alerts for the services you use.</p>
       </div>
 
       <div class="feature-card">
@@ -1306,7 +1336,7 @@
       <h2><svg style="width:24px;height:24px;vertical-align:-3px;margin-right:8px;" viewBox="0 0 24 24" fill="none" stroke="var(--claude-orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Like ClaudeUsageBar? Check out my other products!</h2>
     </div>
     <div class="products-grid">
-      <a href="https://mediaboost.cc?utm_source=claudeusagebar&utm_medium=website&utm_campaign=cross_promo" target="_blank" class="product-card">
+      <a href="https://mediaboost.press?utm_source=claudeusagebar&utm_medium=website&utm_campaign=cross_promo" target="_blank" class="product-card">
         <div class="product-icon">
           <svg width="44" height="44" viewBox="0 0 40 41" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect y="0.5" width="40" height="40" rx="20" fill="url(#mb_grad)"/>
@@ -1325,17 +1355,16 @@
           <span class="product-desc">Instantly boost AIO, SEO, Social Proof</span>
         </div>
       </a>
-      <a href="https://scalepages.co?utm_source=claudeusagebar&utm_medium=website&utm_campaign=cross_promo" target="_blank" class="product-card">
+      <a href="https://checkworth.app?utm_source=claudeusagebar&utm_medium=website&utm_campaign=cross_promo" target="_blank" class="product-card">
         <div class="product-icon">
-          <svg width="44" height="44" viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M21.0576 12.5854C21.0576 9.61202 24.6737 8.14655 26.7437 10.281L36.3772 20.2143C37.6334 21.5096 38.3359 23.2431 38.3359 25.0475V35.8892C38.3359 38.8626 34.7199 40.3281 32.6498 38.1936L23.0163 28.2603C21.7601 26.965 21.0576 25.2315 21.0576 23.4271V12.5854Z" fill="#D2B5FF"/>
-            <path d="M10.3496 12.1675C10.3496 9.19405 13.9657 7.72859 16.0357 9.86307L25.3877 19.5061C26.8245 20.9876 27.6279 22.9702 27.6279 25.0339V35.4712C27.6279 38.4446 24.0119 39.9101 21.9418 37.7756L12.3083 27.8423C11.0521 26.547 10.3496 24.8135 10.3496 23.0091V12.1675Z" fill="#8761E9"/>
-            <path d="M0 12.5854C0 9.61202 3.61605 8.14655 5.68611 10.281L15.3196 20.2143C16.5758 21.5096 17.2783 23.2431 17.2783 25.0475V35.8892C17.2783 38.8626 13.6623 40.3281 11.5922 38.1936L1.95872 28.2603C0.702526 26.965 0 25.2315 0 23.4271V12.5854Z" fill="#534AE5"/>
+          <svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="CheckWorth logo">
+            <circle cx="32" cy="32" r="28" fill="#00C853"/>
+            <text x="32" y="32" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, sans-serif" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle" dominant-baseline="central">$</text>
           </svg>
         </div>
         <div class="product-info">
-          <span class="product-name">Scalepages</span>
-          <span class="product-desc">Scale inbound traffic with no-code programmatic SEO</span>
+          <span class="product-name">CheckWorth</span>
+          <span class="product-desc">Estimate anyone's net worth from LinkedIn</span>
         </div>
       </a>
     </div>
@@ -1357,13 +1386,15 @@
     </div>
   </section>
 
-  <footer>
-    <div class="footer-content">
-      <p class="footer-text">Built with care for the Claude community</p>
+  <footer><div class="footer-content">
+      <p class="footer-text">Built with care for the Claude & Claude Code community</p>
       <div class="footer-links">
+        <a href="/status" class="footer-status-pill loading" data-nav-status><span class="footer-status-dot loading" data-nav-status></span><span>Claude Status</span></a>
+        <a href="/blog/">Blog</a>
         <a href="https://github.com/Artzainnn/ClaudeUsageBar" target="_blank">GitHub</a>
         <a href="https://github.com/Artzainnn/ClaudeUsageBar#-features" target="_blank">Privacy</a>
         <a href="https://github.com/Artzainnn/ClaudeUsageBar/blob/main/LICENSE" target="_blank">License</a>
+        <a href="https://github.com/Artzainnn/ClaudeUsageBar/releases/latest/download/ClaudeUsageBar-Installer.dmg" class="footer-cta-link" data-fast-goal="download_macos">Free download</a>
       </div>
     </div>
   </footer>
@@ -1396,6 +1427,26 @@
       // Update menu bar percentage display
       const menuPercent = document.querySelector('.menu-item[style]');
       if (menuPercent) menuPercent.textContent = sessionPercent + '%';
+
+      // Randomize Claude service status: 50% green, 35% orange, 15% red
+      const statusDot = document.getElementById('statusDot');
+      const statusLabel = document.getElementById('statusLabel');
+      if (statusDot && statusLabel) {
+        const roll = Math.random();
+        let color, text;
+        if (roll < 0.50) {
+          color = 'green';
+          text = 'All Claude services operational';
+        } else if (roll < 0.85) {
+          color = 'orange';
+          text = 'Claude API: degraded performance';
+        } else {
+          color = 'red';
+          text = 'Multiple service outages';
+        }
+        statusDot.className = 'usage-status-dot ' + color;
+        statusLabel.textContent = text;
+      }
 
       // Update last updated time
       updateLastUpdatedTime();

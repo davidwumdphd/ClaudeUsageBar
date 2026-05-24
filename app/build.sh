@@ -4,7 +4,9 @@
 
 echo "Building ClaudeUsageBar..."
 
-# Create build directory
+# Create fresh build directory (delete any stale build to avoid accumulated xattrs
+# from prior signs, which can cause "resource fork / detritus" errors on codesign).
+rm -rf build
 mkdir -p build
 
 # Create app bundle structure first
@@ -62,15 +64,30 @@ echo -n "APPL????" > "$APP_PATH/Contents/PkgInfo"
 # Set proper permissions first
 chmod 755 "$APP_PATH/Contents/MacOS/ClaudeUsageBar"
 
-# Clean extended attributes before signing
+# Clean any "detritus" that codesign rejects: extended attributes, ._files, .DS_Store
 xattr -cr "$APP_PATH"
+find "$APP_PATH" -name '._*' -delete 2>/dev/null
+find "$APP_PATH" -name '.DS_Store' -delete 2>/dev/null
+dot_clean "$APP_PATH" 2>/dev/null
 
-# Sign with Developer ID certificate
+# Sign with Developer ID certificate when available (for notarized releases).
+# Fall back to ad-hoc signing for local development builds.
 DEVELOPER_ID="Developer ID Application: Linkko Technology Pte Ltd (Q467HQ5432)"
-if codesign --force --deep --options runtime --sign "$DEVELOPER_ID" "$APP_PATH" 2>/dev/null; then
-    echo "✅ App signed with Developer ID"
+if security find-identity -v -p codesigning | grep -q "$DEVELOPER_ID"; then
+    if codesign --force --deep --options runtime --sign "$DEVELOPER_ID" "$APP_PATH"; then
+        echo "App signed with Developer ID"
+        if codesign --verify --verbose=2 "$APP_PATH" 2>&1 | grep -q "valid on disk"; then
+            echo "Signature verified"
+        else
+            echo "Signature verification failed, fix before shipping" >&2
+            exit 1
+        fi
+    else
+        echo "Developer ID signing failed despite cert present. Fix before re-running." >&2
+        exit 1
+    fi
 else
-    echo "⚠️  Falling back to ad-hoc signature"
+    echo "Developer ID cert not in keychain, using ad-hoc signing (local dev build, not notarizable)."
     codesign --force --deep --sign - "$APP_PATH"
 fi
 

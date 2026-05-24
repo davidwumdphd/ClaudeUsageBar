@@ -42,10 +42,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initial guess; SwiftUI's intrinsic size (capped at 600) will drive the actual size.
         popover.contentSize = NSSize(width: 360, height: 320)
         popover.behavior = .transient
+        // Tahoe (macOS 26) SwiftUI/NSPopover regression: NSPopover doesn't always
+        // resize its window to follow SwiftUI intrinsic-size changes, so content
+        // overflows or the popover anchors at the wrong position. Push the
+        // measured height back into popover.contentSize so the window tracks.
         popover.contentViewController = NSHostingController(rootView: UsageView(
             usageManager: usageManager,
             statusManager: statusManager,
-            updateManager: updateManager
+            updateManager: updateManager,
+            onHeightChange: { [weak self] height in
+                guard let self = self else { return }
+                let clamped = min(max(height, 100), 600)
+                if abs(self.popover.contentSize.height - clamped) > 0.5 {
+                    self.popover.contentSize = NSSize(width: 360, height: clamped)
+                }
+            }
         ))
 
         // Fetch initial data
@@ -210,6 +221,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+
+            // Bring the popover window forward as key so it renders active (not dimmed).
+            // Accessory apps don't become active automatically when the popover opens.
+            NSApp.activate(ignoringOtherApps: true)
+            popover.contentViewController?.view.window?.makeKey()
 
             // Add event monitor to detect clicks outside the popover
             eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
@@ -1249,6 +1265,7 @@ struct UsageView: View {
     @ObservedObject var usageManager: UsageManager
     @ObservedObject var statusManager: StatusManager
     @ObservedObject var updateManager: UpdateManager
+    var onHeightChange: ((CGFloat) -> Void)? = nil
     @State private var sessionCookieInput: String = ""
     @State private var showingCookieInput: Bool = false
     @State private var showingSettings: Bool = false
@@ -1272,6 +1289,7 @@ struct UsageView: View {
             .onPreferenceChange(ContentHeightKey.self) { value in
                 guard value > 0 else { return }
                 measuredHeight = value
+                onHeightChange?(value)
             }
             .onAppear {
                 if let savedCookie = UserDefaults.standard.string(forKey: "claude_session_cookie") {

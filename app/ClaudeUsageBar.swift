@@ -2,6 +2,36 @@ import SwiftUI
 import AppKit
 import WebKit
 import Carbon
+import ServiceManagement
+
+// Secondary text: system gray in dark; darker in light, where the vibrant
+// ~50% gray over the white popover backing reads as washed out.
+extension Color {
+    static let secondaryText = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? .secondaryLabelColor
+            : NSColor(white: 0.24, alpha: 1.0) // opaque: vibrancy washes out alpha grays
+    })
+}
+
+// Deterministic usage bar: the native linear ProgressView ignores .tint() in
+// light (aqua) and vibrant rendering and falls back to accent blue.
+struct UsageBar: View {
+    let value: Double
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.primary.opacity(0.12))
+                Capsule()
+                    .fill(color)
+                    .frame(width: max(0, min(1, value)) * geo.size.width)
+            }
+        }
+        .frame(height: 6)
+    }
+}
 
 // Main entry point
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -59,6 +89,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         ))
 
+        // Appearance preference: "system" (default) tracks the macOS light/dark
+        // setting; "dark"/"light" force one (dark was hard-forced in v1.3.2 and
+        // users complained about losing light mode). Applied after the popover
+        // exists so both NSApp and the popover get styled.
+        applyAppearancePreference()
+
+        // Re-apply when macOS flips light/dark, so a forced mode that matches
+        // the system switches back to the native (inherited) rendering.
+        DistributedNotificationCenter.default.addObserver(
+            forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            // The defaults key can lag the notification; re-resolve a tick later.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self?.applyAppearancePreference()
+            }
+        }
+
         // Fetch initial data
         usageManager.fetchUsage()
         statusManager.fetch()
@@ -77,6 +125,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Set up Cmd+U keyboard shortcut
         setupKeyboardShortcut()
+    }
+
+    func applyAppearancePreference() {
+        let mode = UserDefaults.standard.string(forKey: "appearance_mode") ?? "system"
+        let systemIsDark = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+        let isDark: Bool
+        switch mode {
+        case "dark":  isDark = true
+        case "light": isDark = false
+        default:      isDark = systemIsDark
+        }
+        // Always set an explicit, resolved appearance ("System" resolves to the
+        // current macOS setting) so every mode uses the same rendering path:
+        // inherited "vibrant" rendering drops ProgressView tints (bars turn
+        // accent-blue) and shades colors slightly differently, which made
+        // System and Dark look different. Set on the popover too — it doesn't
+        // reliably restyle from NSApp.appearance alone once created.
+        let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        NSApp.appearance = appearance
+        popover?.appearance = appearance
     }
 
     func setupKeyboardShortcut() {
@@ -291,6 +359,13 @@ class UsageManager: ObservableObject {
     @Published var weeklySonnetLimit: Int = 100
     @Published var weeklyFableUsage: Int = 0
     @Published var weeklyFableLimit: Int = 100
+    // Extra usage spend (from /overage_spend_limit). Shown only when there's spend.
+    @Published var extraSpentMinor: Int = 0
+    @Published var extraLimitMinor: Int = 0
+    @Published var extraResetsAt: Date?
+    @Published var freeCreditsMinor: Int = 0   // remaining free/promo credits (/prepaid/credits)
+    @Published var creditCurrency: String = "USD"
+    @Published var hasCreditUsage: Bool = false
     @Published var sessionResetsAt: Date?
     @Published var weeklyResetsAt: Date?
     @Published var weeklySonnetResetsAt: Date?
@@ -374,7 +449,12 @@ class UsageManager: ObservableObject {
             statusNotificationsEnabled = UserDefaults.standard.bool(forKey: "status_notifications_enabled")
         }
 
-        openAtLogin = UserDefaults.standard.bool(forKey: "open_at_login")
+        // Reflect the real system login-item state, not just a stored bool.
+        if #available(macOS 13.0, *) {
+            openAtLogin = (SMAppService.mainApp.status == .enabled)
+        } else {
+            openAtLogin = UserDefaults.standard.bool(forKey: "open_at_login")
+        }
         lastNotifiedThreshold = UserDefaults.standard.integer(forKey: "last_notified_threshold")
         // Default shortcut to enabled if not previously set
         if UserDefaults.standard.object(forKey: "shortcut_enabled") == nil {
@@ -390,6 +470,25 @@ class UsageManager: ObservableObject {
         UserDefaults.standard.set(openAtLogin, forKey: "open_at_login")
         UserDefaults.standard.set(shortcutEnabled, forKey: "shortcut_enabled")
         UserDefaults.standard.synchronize()
+    }
+
+    // Actually register/unregister the app as a macOS login item.
+    func applyLoginItem(_ enabled: Bool) {
+        guard #available(macOS 13.0, *) else { return }
+        do {
+            if enabled {
+                if SMAppService.mainApp.status != .enabled {
+                    try SMAppService.mainApp.register()
+                }
+            } else {
+                if SMAppService.mainApp.status == .enabled {
+                    try SMAppService.mainApp.unregister()
+                }
+            }
+            NSLog("🔑 Login item \(enabled ? "registered" : "unregistered")")
+        } catch {
+            NSLog("❌ Login item error: \(error.localizedDescription)")
+        }
     }
 
     func saveSessionCookie(_ cookie: String) {
@@ -415,6 +514,11 @@ class UsageManager: ObservableObject {
         weeklyResetsAt = nil
         weeklySonnetResetsAt = nil
         weeklyFableResetsAt = nil
+        extraSpentMinor = 0
+        extraLimitMinor = 0
+        extraResetsAt = nil
+        freeCreditsMinor = 0
+        hasCreditUsage = false
         hasFetchedData = false
         hasWeeklySonnet = false
         hasWeeklyFable = false
@@ -495,7 +599,82 @@ class UsageManager: ObservableObject {
             }
 
             self.fetchUsageWithOrgId(orgId)
+            self.fetchExtraUsage(orgId)
+            self.fetchFreeCredits(orgId)
         }
+    }
+
+    // Remaining free/promo credits (balance) from /prepaid/credits.
+    func fetchFreeCredits(_ orgId: String) {
+        guard let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/prepaid/credits") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(sessionCookie, forHTTPHeaderField: "Cookie")
+        request.setValue("*/*", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("https://claude.ai", forHTTPHeaderField: "Origin")
+        request.setValue("https://claude.ai", forHTTPHeaderField: "Referer")
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        request.setValue("claude.ai", forHTTPHeaderField: "authority")
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            DispatchQueue.main.async {
+                guard let self = self,
+                      let http = response as? HTTPURLResponse, http.statusCode == 200,
+                      let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+                // `amount` is the current balance; fall back to summing remaining tranches.
+                if let amount = json["amount"] as? Int {
+                    self.freeCreditsMinor = amount
+                } else {
+                    var remaining = 0
+                    for key in ["tranches", "promo_tranches"] {
+                        if let arr = json[key] as? [[String: Any]] {
+                            for t in arr { remaining += (t["remaining_amount_minor_units"] as? Int) ?? 0 }
+                        }
+                    }
+                    self.freeCreditsMinor = remaining
+                }
+                if let cur = json["currency"] as? String { self.creditCurrency = cur }
+                NSLog("🎁 Free credits left: \(self.freeCreditsMinor) \(self.creditCurrency)")
+            }
+        }.resume()
+    }
+
+    // Extra usage spend + monthly limit live on a separate endpoint (not /usage).
+    func fetchExtraUsage(_ orgId: String) {
+        guard let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/overage_spend_limit") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(sessionCookie, forHTTPHeaderField: "Cookie")
+        request.setValue("*/*", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("https://claude.ai", forHTTPHeaderField: "Origin")
+        request.setValue("https://claude.ai", forHTTPHeaderField: "Referer")
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        request.setValue("claude.ai", forHTTPHeaderField: "authority")
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            DispatchQueue.main.async {
+                guard let self = self,
+                      let http = response as? HTTPURLResponse, http.statusCode == 200,
+                      let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+
+                let spent = (json["used_credits"] as? Int) ?? 0
+                let limit = (json["monthly_credit_limit"] as? Int) ?? 0
+                self.extraSpentMinor = spent
+                self.extraLimitMinor = limit
+                self.creditCurrency = (json["currency"] as? String) ?? "USD"
+                if let resetStr = json["disabled_until"] as? String {
+                    let f = ISO8601DateFormatter()
+                    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    self.extraResetsAt = f.date(from: resetStr) ?? ISO8601DateFormatter().date(from: resetStr)
+                }
+                self.hasCreditUsage = spent > 0
+                NSLog("💳 Extra usage: \(spent)/\(limit) \(self.creditCurrency)")
+            }
+        }.resume()
     }
 
     func fetchUsageWithOrgId(_ orgId: String) {
@@ -653,6 +832,8 @@ class UsageManager: ObservableObject {
                     }
                 }
             }
+
+            // (Prepaid usage credits are fetched separately from /prepaid/credits.)
 
             // Log what we found
             NSLog("✅ Parsed: Session \(sessionUsage)%, Weekly \(weeklyUsage)%\(hasWeeklySonnet ? ", Weekly Sonnet \(weeklySonnetUsage)%" : "")\(hasWeeklyFable ? ", Weekly Fable \(weeklyFableUsage)%" : "")")
@@ -1044,8 +1225,25 @@ struct AvailableUpdate: Equatable {
     let buttons: [BannerButton]
 }
 
+// Free-form message channel, decoupled from the app version. Driven by the
+// `message` object in latest.json and keyed on `id` (not version), so any
+// message can be sent at any time without shipping a new build. Every field is
+// author-controlled — including the notification title, which is NOT possible
+// on the legacy version-based channel.
+struct Announcement: Equatable {
+    let id: String
+    let heading: String?          // optional small top line on the card (nil = none)
+    let title: String
+    let body: String
+    let buttons: [BannerButton]
+    let notify: Bool              // false = show the in-app card only, no OS notification
+    let notifTitle: String        // fully custom notification title
+    let notifBody: String         // fully custom notification body
+}
+
 class UpdateManager: ObservableObject {
     @Published var available: AvailableUpdate?
+    @Published var announcement: Announcement?
 
     // Served directly from the repo via GitHub — free, unlimited, no Vercel meter.
     // Same file as website/latest.json so existing v1.1 users on Vercel see the same JSON.
@@ -1099,46 +1297,97 @@ class UpdateManager: ObservableObject {
         URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
             guard let self = self,
                   let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let version = json["version"] as? String,
-                  let title = json["title"] as? String,
-                  let body = json["description"] as? String else {
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 NSLog("⚠️ Update fetch failed or invalid payload")
                 return
             }
 
-            let buttons = Self.parseButtons(from: json)
+            // ---- Legacy version-update channel (for real releases; also what
+            //      pre-1.3.1 apps rely on). Optional — absent fields = no update.
+            let updatePayload: AvailableUpdate? = {
+                guard let version = json["version"] as? String,
+                      let title = json["title"] as? String,
+                      let body = json["description"] as? String else { return nil }
+                return AvailableUpdate(version: version, title: title, body: body,
+                                       buttons: Self.parseButtons(from: json))
+            }()
+
+            // ---- Free-form message channel (`message` object, keyed on `id`).
+            //      Every field author-controlled, including the notification title.
+            let announcementPayload: Announcement? = {
+                guard let msg = json["message"] as? [String: Any],
+                      let id = msg["id"] as? String, !id.isEmpty else { return nil }
+                let title = msg["title"] as? String ?? ""
+                let body  = msg["body"]  as? String ?? ""
+                let notif = msg["notification"] as? [String: Any]
+                return Announcement(
+                    id: id,
+                    heading: msg["heading"] as? String,
+                    title: title,
+                    body: body,
+                    buttons: Self.parseButtons(from: msg),
+                    notify: (msg["notify"] as? Bool) ?? true,
+                    notifTitle: (notif?["title"] as? String) ?? (title.isEmpty ? "ClaudeUsageBar" : title),
+                    notifBody:  (notif?["body"]  as? String) ?? body
+                )
+            }()
 
             DispatchQueue.main.async {
-                guard self.isNewer(remote: version, than: self.currentVersion) else {
+                // Version-update channel
+                if let update = updatePayload, self.isNewer(remote: update.version, than: self.currentVersion) {
+                    if self.available != update {
+                        self.available = update
+                        NSLog("⬆️ Update available: \(update.version)")
+                    }
+                    let lastNotified = UserDefaults.standard.string(forKey: "last_notified_update_version")
+                    if lastNotified != update.version {
+                        let n = NSUserNotification()
+                        n.title = "ClaudeUsageBar \(update.version) is available"
+                        n.informativeText = update.title
+                        n.soundName = NSUserNotificationDefaultSoundName
+                        NSUserNotificationCenter.default.deliver(n)
+                        UserDefaults.standard.set(update.version, forKey: "last_notified_update_version")
+                        NSLog("📬 Sent update notification for \(update.version)")
+                    }
+                } else {
                     self.available = nil
-                    return
                 }
 
-                let update = AvailableUpdate(version: version, title: title, body: body, buttons: buttons)
+                // Message channel — notify once per `id`. On the very first run
+                // that supports messages, seed the current id WITHOUT notifying so
+                // updating from an older version doesn't re-ping the live message.
+                if let ann = announcementPayload {
+                    let dismissed = UserDefaults.standard.string(forKey: "dismissed_message_id")
+                    self.announcement = (dismissed == ann.id) ? nil : ann
 
-                if self.available != update {
-                    self.available = update
-                    NSLog("⬆️ Update available: \(version)")
-                }
-
-                let lastNotified = UserDefaults.standard.string(forKey: "last_notified_update_version")
-                // Update notifications fire regardless of usage/status toggles — they're
-                // version-once and tied to user-initiated upgrade flow, not noise.
-                if lastNotified != version {
-                    let n = NSUserNotification()
-                    n.title = "ClaudeUsageBar \(version) is available"
-                    n.informativeText = title
-                    n.soundName = NSUserNotificationDefaultSoundName
-                    NSUserNotificationCenter.default.deliver(n)
-                    UserDefaults.standard.set(version, forKey: "last_notified_update_version")
-                    NSLog("📬 Sent update notification for \(version)")
+                    let lastShown = UserDefaults.standard.string(forKey: "last_shown_message_id")
+                    if lastShown == nil {
+                        UserDefaults.standard.set(ann.id, forKey: "last_shown_message_id")   // seed, no notif
+                    } else if lastShown != ann.id {
+                        if ann.notify {
+                            let n = NSUserNotification()
+                            n.title = ann.notifTitle
+                            n.informativeText = ann.notifBody
+                            n.soundName = NSUserNotificationDefaultSoundName
+                            NSUserNotificationCenter.default.deliver(n)
+                            NSLog("📬 Sent message notification for id \(ann.id)")
+                        }
+                        UserDefaults.standard.set(ann.id, forKey: "last_shown_message_id")
+                    }
+                } else {
+                    self.announcement = nil
                 }
             }
         }.resume()
     }
 
     func dismissCurrent() {
+        // Announcement takes priority in the UI, so dismiss it first if present.
+        if let id = announcement?.id {
+            UserDefaults.standard.set(id, forKey: "dismissed_message_id")
+            announcement = nil
+            return
+        }
         if let v = available?.version {
             UserDefaults.standard.set(v, forKey: "dismissed_update_version")
         }
@@ -1312,6 +1561,8 @@ struct UsageView: View {
     @State private var showingSettings: Bool = false
     @State private var showingStatusDetails: Bool = false
     @State private var measuredHeight: CGFloat = 250
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("appearance_mode") private var appearanceMode: String = "system"
 
     private let maxPopupHeight: CGFloat = 600
 
@@ -1327,6 +1578,16 @@ struct UsageView: View {
                     )
             }
             .frame(width: 360, height: min(max(measuredHeight, 100), maxPopupHeight))
+            // Dark: light scrim over the native material — between fully native
+            // (too transparent) and the v1.3.2 0.62 scrim (read as "too dark").
+            // TEST VALUE on ClaudeUsageBar only; CodexUsageBar stays fully native.
+            // Light: near-opaque backing, or a dark desktop bleeds through as
+            // murky blue-gray when forced.
+            .background(
+                colorScheme == .dark
+                    ? Color(red: 0.07, green: 0.07, blue: 0.08).opacity(0.3)
+                    : Color.white.opacity(0.85)
+            )
             .onPreferenceChange(ContentHeightKey.self) { value in
                 guard value > 0 else { return }
                 measuredHeight = value
@@ -1356,8 +1617,50 @@ struct UsageView: View {
                 .font(.headline)
                 .padding(.bottom, 4)
 
-            // App update / announcement banner
-            if let update = updateManager.available, !updateManager.isCurrentDismissed {
+            // Free-form message banner (author-controlled). Takes priority over
+            // the version-update banner when both are present.
+            if let ann = updateManager.announcement {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        if let heading = ann.heading, !heading.isEmpty {
+                            Text(heading)
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                        }
+                        Spacer()
+                        Button(action: { updateManager.dismissCurrent() }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(Color.secondaryText)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    if !ann.title.isEmpty {
+                        Text(ann.title)
+                            .font(.caption)
+                    }
+                    if !ann.body.isEmpty {
+                        Text(ann.body)
+                            .font(.caption2)
+                            .foregroundColor(Color.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if !ann.buttons.isEmpty {
+                        HStack(spacing: 6) {
+                            ForEach(ann.buttons.indices, id: \.self) { i in
+                                bannerButton(ann.buttons[i])
+                            }
+                        }
+                    }
+                }
+                .padding(8)
+                .background(Color.accentColor.opacity(0.12))
+                .cornerRadius(6)
+            }
+
+            // App update banner (version-based). Hidden while a message banner shows.
+            if updateManager.announcement == nil,
+               let update = updateManager.available, !updateManager.isCurrentDismissed {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Text("⬆️")
@@ -1368,7 +1671,7 @@ struct UsageView: View {
                         Button(action: { updateManager.dismissCurrent() }) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 9, weight: .semibold))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.secondaryText)
                         }
                         .buttonStyle(.borderless)
                     }
@@ -1376,7 +1679,7 @@ struct UsageView: View {
                         .font(.caption)
                     Text(update.body)
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                     if !update.buttons.isEmpty {
                         HStack(spacing: 6) {
@@ -1402,7 +1705,7 @@ struct UsageView: View {
             if !usageManager.hasFetchedData {
                 Text("👋 Welcome! Set your session cookie below to get started.")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color.secondaryText)
                     .padding(.vertical, 8)
             }
 
@@ -1416,16 +1719,16 @@ struct UsageView: View {
                     if let resetTime = usageManager.sessionResetsAt {
                         Text("Resets \(formatResetTime(resetTime))")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.secondaryText)
                     }
                 }
 
-                ProgressView(value: usageManager.sessionPercentage)
-                    .tint(colorForPercentage(usageManager.sessionPercentage))
+                UsageBar(value: usageManager.sessionPercentage,
+                         color: colorForPercentage(usageManager.sessionPercentage))
 
                 Text("\(Int(usageManager.sessionPercentage * 100))% used")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color.secondaryText)
 
                 Text(formatPacingDelta(usageManager.sessionPacingDelta))
                     .font(.caption2)
@@ -1441,16 +1744,16 @@ struct UsageView: View {
                     if let resetTime = usageManager.weeklyResetsAt {
                         Text("Resets \(formatResetTime(resetTime, includeDate: true))")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.secondaryText)
                     }
                 }
 
-                ProgressView(value: usageManager.weeklyPercentage)
-                    .tint(colorForPercentage(usageManager.weeklyPercentage))
+                UsageBar(value: usageManager.weeklyPercentage,
+                         color: colorForPercentage(usageManager.weeklyPercentage))
 
                 Text("\(Int(usageManager.weeklyPercentage * 100))% used")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color.secondaryText)
 
                 Text(formatPacingDelta(usageManager.weeklyPacingDelta))
                     .font(.caption2)
@@ -1467,16 +1770,125 @@ struct UsageView: View {
                         if let resetTime = usageManager.weeklySonnetResetsAt {
                             Text("Resets \(formatResetTime(resetTime, includeDate: true))")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.secondaryText)
                         }
                     }
 
-                    ProgressView(value: usageManager.weeklySonnetPercentage)
-                        .tint(colorForPercentage(usageManager.weeklySonnetPercentage))
+                    UsageBar(value: usageManager.weeklySonnetPercentage,
+                             color: colorForPercentage(usageManager.weeklySonnetPercentage))
 
                     Text("\(Int(usageManager.weeklySonnetPercentage * 100))% used")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.secondaryText)
+                }
+            }
+
+            // Weekly Fable Usage — only surfaced once usage is above 1%
+            // (new model, counted separately; hidden while idle to avoid clutter).
+            if usageManager.hasWeeklyFable && usageManager.hasFetchedData && usageManager.weeklyFableUsage >= 1 {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Weekly Fable (7 day)")
+                            .font(.subheadline)
+                        Spacer()
+                        if let resetTime = usageManager.weeklyFableResetsAt {
+                            Text("Resets \(formatResetTime(resetTime, includeDate: true))")
+                                .font(.caption)
+                                .foregroundColor(Color.secondaryText)
+                        }
+                    }
+
+                    UsageBar(value: usageManager.weeklyFablePercentage,
+                             color: colorForPercentage(usageManager.weeklyFablePercentage))
+
+                    Text("\(Int(usageManager.weeklyFablePercentage * 100))% used")
+                        .font(.caption)
+                        .foregroundColor(Color.secondaryText)
+                }
+            }
+
+            // Usage credits (pay-as-you-go). Only shown once credits are actually
+            // used; links out to manage credits on claude.ai.
+            if usageManager.hasCreditUsage || usageManager.freeCreditsMinor > 0 {
+                let spentMinor = usageManager.extraSpentMinor
+                let limitMinor = usageManager.extraLimitMinor
+                let pct = limitMinor > 0 ? Double(spentMinor) / Double(limitMinor) : 0
+                let pctInt = Int((pct * 100).rounded())
+                // Show the exact % up to the limit; once over, just say "over limit".
+                let pctLabel = pctInt > 100 ? "over limit" : "\(pctInt)%"
+                let fmt: (Int) -> String = { minor in
+                    let v = Double(minor) / 100.0
+                    return usageManager.creditCurrency == "USD"
+                        ? String(format: "$%.2f", v)
+                        : String(format: "%@ %.2f", usageManager.creditCurrency, v)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Extra usage")
+                            .font(.subheadline)
+                        Spacer()
+                        Button(action: {
+                            if let url = URL(string: "https://claude.ai/new#settings/usage") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }) {
+                            Text("Manage →")
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(.accentColor)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+
+                    // Reset date, shortened (e.g. "Resets Aug 1") so it fits inline.
+                    let shortReset: String? = usageManager.extraResetsAt.map { d in
+                        let f = DateFormatter(); f.dateFormat = "MMM d"
+                        return "Resets \(f.string(from: d))"
+                    }
+
+                    // Spend vs monthly limit — only when there's actual spend.
+                    if usageManager.hasCreditUsage {
+                        if limitMinor > 0 {
+                            UsageBar(value: min(pct, 1.0),
+                                     color: colorForPercentage(pct))
+                        }
+                        HStack {
+                            Text(limitMinor > 0
+                                 ? "\(fmt(spentMinor)) of \(fmt(limitMinor)) · \(pctLabel)"
+                                 : "\(fmt(spentMinor)) spent")
+                                .font(.caption)
+                                .foregroundColor(Color.secondaryText)
+                            Spacer()
+                            if let r = shortReset {
+                                Text(r)
+                                    .font(.caption)
+                                    .foregroundColor(Color.secondaryText)
+                            }
+                        }
+                    }
+
+                    if usageManager.freeCreditsMinor > 0 {
+                        Text("\(fmt(usageManager.freeCreditsMinor)) free credits left")
+                            .font(.caption2)
+                            .foregroundColor(Color.secondaryText)
+                            .opacity(0.85)
+                    }
+                }
+            }
+
+            // Discreet reassurance line naming whichever of Fable / extra usage
+            // is not being consumed (nothing shown when both are active).
+            if usageManager.hasFetchedData {
+                let fableActive = usageManager.hasWeeklyFable && usageManager.weeklyFableUsage >= 1
+                let extraActive = usageManager.hasCreditUsage || usageManager.freeCreditsMinor > 0
+                if !fableActive || !extraActive {
+                    Text(
+                        !fableActive && !extraActive ? "No Fable or extra usage"
+                        : !extraActive ? "No extra usage"
+                        : "No Fable usage"
+                    )
+                    .font(.caption2)
+                    .foregroundColor(Color.secondaryText)
+                    .opacity(0.6)
                 }
             }
 
@@ -1529,11 +1941,11 @@ struct UsageView: View {
                                  ? "All Claude services operational"
                                  : statusManager.statusDescription)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.secondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                             Text(statusContextLine(for: statusManager))
                                 .font(.system(size: 10))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.secondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer()
@@ -1572,7 +1984,7 @@ struct UsageView: View {
                                         if let updated = incident.updatedAt {
                                             Text("Updated \(relativeTime(updated))")
                                                 .font(.caption2)
-                                                .foregroundColor(.secondary)
+                                                .foregroundColor(Color.secondaryText)
                                         }
                                     }
 
@@ -1593,7 +2005,7 @@ struct UsageView: View {
                                     Text("Affected services")
                                         .font(.caption2)
                                         .fontWeight(.semibold)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Color.secondaryText)
                                     ForEach(filteredAffected) { c in
                                         HStack(spacing: 6) {
                                             Circle()
@@ -1603,7 +2015,7 @@ struct UsageView: View {
                                             Spacer()
                                             Text(componentLabel(c.status))
                                                 .font(.caption2)
-                                                .foregroundColor(.secondary)
+                                                .foregroundColor(Color.secondaryText)
                                         }
                                     }
                                 }
@@ -1615,7 +2027,7 @@ struct UsageView: View {
                                 if let lastCheck = statusManager.lastUpdated {
                                     Text("Checked \(relativeTime(lastCheck))")
                                         .font(.caption2)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Color.secondaryText)
                                 }
                                 Spacer()
                                 Button(action: {
@@ -1640,7 +2052,7 @@ struct UsageView: View {
             HStack {
                 Text("Last updated: \(formatTime(usageManager.lastUpdated))")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color.secondaryText)
                 Spacer()
                 Button("Refresh") {
                     usageManager.fetchUsage()
@@ -1684,12 +2096,12 @@ struct UsageView: View {
                         Text("6. Copy full cookie value\n   (starts with anthropic-device-id=...)")
                     }
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color.secondaryText)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Paste full cookie string:")
                             .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.secondaryText)
                         VStack(spacing: 4) {
                             PasteableTextField(text: $sessionCookieInput, placeholder: "Paste cookie here...")
                                 .frame(height: 60)
@@ -1739,6 +2151,7 @@ struct UsageView: View {
                         get: { usageManager.openAtLogin },
                         set: { newValue in
                             usageManager.openAtLogin = newValue
+                            usageManager.applyLoginItem(newValue)
                             usageManager.saveSettings()
                         }
                     )) {
@@ -1747,7 +2160,7 @@ struct UsageView: View {
                                 .font(.caption)
                             Text("Launch app automatically when you log in")
                                 .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.secondaryText)
                         }
                     }
                     .toggleStyle(.checkbox)
@@ -1765,7 +2178,7 @@ struct UsageView: View {
                                     .font(.caption)
                                 Text("Get alerts at 25%, 50%, 75%,\nand 90% session usage")
                                     .font(.caption2)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Color.secondaryText)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -1783,7 +2196,7 @@ struct UsageView: View {
                                     .font(.caption)
                                 Text("Get alerts when tracked Claude services have an outage")
                                     .font(.caption2)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Color.secondaryText)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -1814,7 +2227,7 @@ struct UsageView: View {
                                     .font(.caption)
                                 Text("Toggle popup from anywhere.\nDisable if it conflicts with other apps.")
                                     .font(.caption2)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Color.secondaryText)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -1829,7 +2242,7 @@ struct UsageView: View {
 
                             Text("Accessibility permission may be needed\nfor the shortcut to work in all apps")
                                 .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.secondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -1842,7 +2255,7 @@ struct UsageView: View {
                             .fontWeight(.semibold)
                         Text("Only tick the Claude services you use. Status issues with unticked services won't be shown or trigger alerts.")
                             .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.secondaryText)
                             .fixedSize(horizontal: false, vertical: true)
                         ForEach(statusManager.allComponents) { component in
                             Toggle(isOn: Binding(
@@ -1854,6 +2267,28 @@ struct UsageView: View {
                             }
                             .toggleStyle(.checkbox)
                         }
+                    }
+
+                    Divider()
+
+                    // Appearance sits last on purpose: opening Settings auto-scrolls
+                    // to the anchor below, so this lands in view.
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Appearance")
+                            .font(.caption)
+                        Picker("Appearance", selection: $appearanceMode) {
+                            Text("System").tag("system")
+                            Text("Dark").tag("dark")
+                            Text("Light").tag("light")
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .onChange(of: appearanceMode) { _ in
+                            (NSApplication.shared.delegate as? AppDelegate)?.applyAppearancePreference()
+                        }
+                        Text("Match macOS, or keep the classic dark look")
+                            .font(.caption2)
+                            .foregroundColor(Color.secondaryText)
                     }
 
                 }

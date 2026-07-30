@@ -6,8 +6,10 @@
   <meta name="theme-color" content="#0d0d0f">
   <meta name="color-scheme" content="dark">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
   <link rel="canonical" href="https://claudeusagebar.com/">
   <title>ClaudeUsageBar – Free Claude & Claude Code Usage Tracker for macOS</title>
   <meta name="description" content="Free, open-source macOS menu bar app that tracks your Claude and Claude Code usage limits in real time. Get notifications before hitting your limit. Lightweight, private, and native.">
@@ -22,8 +24,8 @@
   <meta property="og:image:alt" content="ClaudeUsageBar - Track your Claude AI usage from the macOS menu bar">
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@maximemb_">
-  <meta name="twitter:creator" content="@maximemb_">
+  <meta name="twitter:site" content="@buildingitmyway">
+  <meta name="twitter:creator" content="@buildingitmyway">
   <meta name="twitter:title" content="ClaudeUsageBar – Free Claude & Claude Code Usage Tracker for macOS">
   <meta name="twitter:description" content="Free, open-source macOS menu bar app that tracks your Claude and Claude Code usage limits in real time. Get notifications before hitting your limit.">
   <meta name="twitter:image" content="https://claudeusagebar.com/og-image.png">
@@ -100,7 +102,7 @@
     /* Navigation */
     nav {
       position: fixed;
-      top: 0;
+      top: 40px;
       left: 0;
       right: 0;
       z-index: 100;
@@ -187,7 +189,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 80px 24px 80px;
+      padding: 120px 24px 80px;
       text-align: center;
     }
 
@@ -209,6 +211,48 @@
     .hero-badge svg {
       width: 16px;
       height: 16px;
+    }
+
+    /* Full-width announcement banner (fixed, sits above the nav) */
+    .announce-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 101;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 16px;
+      background: linear-gradient(90deg, var(--claude-orange), var(--claude-orange-dark));
+      color: #ffffff;
+      font-size: 13.5px;
+      font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: filter 0.2s ease;
+    }
+
+    .announce-bar:hover { filter: brightness(1.07); }
+
+    .announce-bar-tag {
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.22);
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border-radius: 100px;
+    }
+
+    .announce-bar-sep { opacity: 0.5; font-weight: 400; }
+
+    @media (max-width: 480px) {
+      .announce-bar { font-size: 13.5px; height: 40px; pointer-events: none; }
+      .announce-bar-cta { display: none; }
     }
 
     .hero-icon {
@@ -311,6 +355,48 @@
     .download-btn svg {
       width: 22px;
       height: 22px;
+    }
+
+    /* Homebrew one-liner under the download buttons */
+    .brew-line {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      margin-top: 18px;
+      animation: fadeInUp 0.6s ease-out;
+    }
+    .brew-line-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .brew-cmd {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 100%;
+      padding: 9px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: "SF Mono", ui-monospace, Menlo, monospace;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: border-color 0.2s ease, color 0.2s ease;
+      white-space: nowrap;
+      overflow-x: auto;
+    }
+    .brew-cmd:hover { border-color: rgba(218, 119, 86, 0.45); color: var(--text-primary); }
+    .brew-cmd .brew-copy {
+      flex-shrink: 0;
+      width: 14px;
+      height: 14px;
+      opacity: 0.6;
+    }
+    .brew-cmd.copied { border-color: rgba(33, 197, 93, 0.55); }
+    @media (max-width: 480px) {
+      .brew-cmd { font-size: 11px; padding: 8px 10px; }
     }
 
     .github-btn {
@@ -554,6 +640,28 @@
     .usage-status-dot.green  { background: #21c55d; }
     .usage-status-dot.orange { background: #ff8c42; }
     .usage-status-dot.red    { background: #ff3b30; }
+
+    .twin-card {
+      display: flex;
+      align-items: center;
+      text-align: left;
+      gap: 14px;
+      max-width: 480px;
+      margin: 44px auto 0;
+      padding: 14px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      text-decoration: none;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .twin-card:hover { border-color: #10a37f; transform: translateY(-2px); }
+    .twin-card img { width: 42px; height: 42px; border-radius: 9px; flex-shrink: 0; }
+    .twin-card-title { font-size: 14.5px; font-weight: 600; color: var(--text-primary); }
+    .twin-card-desc { font-size: 12.5px; color: var(--text-secondary); }
+    .twin-card-arrow { margin-left: auto; color: var(--text-muted); font-size: 18px; transition: transform 0.2s, color 0.2s; }
+    .twin-card:hover .twin-card-arrow { transform: translateX(3px); color: #10a37f; }
+    @media (max-width: 520px) { .twin-card { margin-left: 16px; margin-right: 16px; } }
 
     .usage-popup-footer {
       display: flex;
@@ -1038,6 +1146,12 @@
   <script src="/nav-status.js" defer></script>
 </head>
 <body style="background-color: #0d0d0f;">
+
+  <!-- Full-width announcement banner -->
+  <a href="https://github.com/Artzainnn/ClaudeUsageBar/releases/latest/download/ClaudeUsageBar-Installer.dmg" class="announce-bar" data-fast-goal="download_macos">
+    <span class="announce-bar-tag">NEW</span>
+    Light mode is back! The app now matches macOS light and dark<span class="announce-bar-cta"> <span class="announce-bar-sep">•</span> Free Download</span>
+  </a>
   <div class="ambient"></div>
 
   <nav>
@@ -1071,7 +1185,7 @@
     <a href="#features" onclick="document.getElementById('mobileMenu').classList.remove('active')">Features</a>
     <a href="#faq" onclick="document.getElementById('mobileMenu').classList.remove('active')">FAQ</a>
     <a href="https://github.com/Artzainnn/ClaudeUsageBar" target="_blank" data-fast-goal="view_github">GitHub</a>
-    <a href="https://x.com/maximemb_?s=21&t=38Tp8cgg5LrrdHz7FGdtzQ" target="_blank" data-fast-goal="click_twitter">
+    <a href="https://x.com/buildingitmyway" target="_blank" data-fast-goal="click_twitter">
       <svg style="width: 16px; height: 16px; vertical-align: middle; margin-right: 6px; fill: currentColor;" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
       Twitter
     </a>
@@ -1119,6 +1233,24 @@
           </span>
         </a>
       </div>
+
+      <div class="brew-line">
+        <span class="brew-line-label">or install with Homebrew</span>
+        <code class="brew-cmd" id="brewCmd" title="Click to copy" data-fast-goal="copy_brew">brew tap Artzainnn/tap &amp;&amp; brew install --cask claudeusagebar
+          <svg class="brew-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </code>
+      </div>
+      <script>
+        document.getElementById('brewCmd').addEventListener('click', function () {
+          navigator.clipboard.writeText('brew tap Artzainnn/tap && brew install --cask claudeusagebar').then(() => {
+            this.classList.add('copied');
+            const label = document.querySelector('.brew-line-label');
+            const prev = label.textContent;
+            label.textContent = 'copied to clipboard ✓';
+            setTimeout(() => { this.classList.remove('copied'); label.textContent = prev; }, 1600);
+          });
+        });
+      </script>
       <div class="download-meta">
         <span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1197,6 +1329,28 @@
                 <span class="usage-section-percent" id="weeklyPercent">82% used</span>
               </div>
 
+              <div class="usage-section">
+                <div class="usage-section-header">
+                  <span class="usage-section-label">Weekly Fable (7 day)</span>
+                  <span class="usage-section-reset">Resets on 31 Jan 2026</span>
+                </div>
+                <div class="usage-progress">
+                  <div class="usage-progress-bar green" id="fableBar" style="width: 24%;"></div>
+                </div>
+                <span class="usage-section-percent" id="fablePercent">24% used</span>
+              </div>
+
+              <div class="usage-section">
+                <div class="usage-section-header">
+                  <span class="usage-section-label">Extra usage</span>
+                  <span class="usage-section-reset">Resets Aug 1</span>
+                </div>
+                <div class="usage-progress">
+                  <div class="usage-progress-bar" id="extraBar" style="width: 34%;"></div>
+                </div>
+                <span class="usage-section-percent" id="extraPercent">$8.50 of $25.00 · 34%</span>
+              </div>
+
               <div class="usage-status-row" id="statusRow">
                 <span class="usage-status-dot green" id="statusDot"></span>
                 <span id="statusLabel">All Claude services operational</span>
@@ -1213,6 +1367,15 @@
       <div style="text-align: center; margin-top: 16px;">
         <a href="javascript:void(0)" onclick="refreshUsage()" style="color: var(--text-muted); font-size: 14px; text-decoration: none; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='var(--claude-orange)'" onmouseout="this.style.color='var(--text-muted)'">Click to see it in action</a>
       </div>
+
+      <a href="https://codexusagebar.com?utm_source=claudeusagebar&utm_medium=website&utm_campaign=cross_promo" target="_blank" class="twin-card" data-fast-goal="cross_promo">
+        <img src="https://codexusagebar.com/apple-touch-icon.png" alt="CodexUsageBar logo">
+        <div>
+          <div class="twin-card-title">Using Codex too?</div>
+          <div class="twin-card-desc">Get CodexUsageBar for your ChatGPT Codex limits</div>
+        </div>
+        <span class="twin-card-arrow">&rarr;</span>
+      </a>
     </div>
   </section>
 
@@ -1355,16 +1518,21 @@
           <span class="product-desc">Instantly boost AIO, SEO, Social Proof</span>
         </div>
       </a>
-      <a href="https://checkworth.app?utm_source=claudeusagebar&utm_medium=website&utm_campaign=cross_promo" target="_blank" class="product-card">
+      <a href="https://tickercompare.com?utm_source=claudeusagebar&utm_medium=website&utm_campaign=cross_promo" target="_blank" class="product-card">
         <div class="product-icon">
-          <svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="CheckWorth logo">
-            <circle cx="32" cy="32" r="28" fill="#00C853"/>
-            <text x="32" y="32" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, sans-serif" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle" dominant-baseline="central">$</text>
+          <svg width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="TickerCompare logo">
+            <defs><linearGradient id="tc-logo-g" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse"><stop stop-color="#2f2f31"/><stop offset="1" stop-color="#1c1c1e"/></linearGradient></defs>
+            <rect width="48" height="48" rx="11" fill="url(#tc-logo-g)"/>
+            <g fill="#ef5a23">
+              <rect x="11" y="25" width="6" height="11" rx="1.6" opacity="0.65"/>
+              <rect x="21" y="19" width="6" height="17" rx="1.6" opacity="0.82"/>
+              <rect x="31" y="12" width="6" height="24" rx="1.6"/>
+            </g>
           </svg>
         </div>
         <div class="product-info">
-          <span class="product-name">CheckWorth</span>
-          <span class="product-desc">Estimate anyone's net worth from LinkedIn</span>
+          <span class="product-name">TickerCompare</span>
+          <span class="product-desc">Compare UCITS ETFs &amp; stocks</span>
         </div>
       </a>
     </div>
@@ -1373,7 +1541,7 @@
   <section class="creator">
     <div class="creator-content">
       <span class="creator-label">Made with love by</span>
-      <a href="https://x.com/maximemb_?s=21&t=38Tp8cgg5LrrdHz7FGdtzQ" target="_blank" class="creator-link" data-fast-goal="click_twitter">
+      <a href="https://x.com/buildingitmyway" target="_blank" class="creator-link" data-fast-goal="click_twitter">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
         </svg>

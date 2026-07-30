@@ -1892,29 +1892,6 @@ struct UsageView: View {
                 }
             }
 
-            // Weekly Fable Usage — only surfaced once usage is above 1%
-            // (new model, counted separately; hidden while idle to avoid clutter).
-            if usageManager.hasWeeklyFable && usageManager.hasFetchedData && usageManager.weeklyFableUsage >= 1 {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Weekly Fable (7 day)")
-                            .font(.subheadline)
-                        Spacer()
-                        if let resetTime = usageManager.weeklyFableResetsAt {
-                            Text("Resets \(formatResetTime(resetTime, includeDate: true))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-
-                    ProgressView(value: usageManager.weeklyFablePercentage)
-                        .tint(colorForPercentage(usageManager.weeklyFablePercentage))
-
-                    Text("\(Int(usageManager.weeklyFablePercentage * 100))% used")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
             }
 
             if statusManager.hasFetched {

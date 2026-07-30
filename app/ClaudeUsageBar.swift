@@ -456,6 +456,19 @@ class UsageManager: ObservableObject {
             openAtLogin = UserDefaults.standard.bool(forKey: "open_at_login")
         }
         lastNotifiedThreshold = UserDefaults.standard.integer(forKey: "last_notified_threshold")
+
+        // Restore reset-alert dedup state; if the stored reset date still
+        // matches the fetched one, the window hasn't rolled and we won't re-alert.
+        let sessionEpoch = UserDefaults.standard.double(forKey: "reset_alert_session_epoch")
+        if sessionEpoch > 0 {
+            trackedSessionResetsAt = Date(timeIntervalSinceReferenceDate: sessionEpoch)
+            lastSessionResetAlertMinutes = UserDefaults.standard.integer(forKey: "reset_alert_session_lead")
+        }
+        let weeklyEpoch = UserDefaults.standard.double(forKey: "reset_alert_weekly_epoch")
+        if weeklyEpoch > 0 {
+            trackedWeeklyResetsAt = Date(timeIntervalSinceReferenceDate: weeklyEpoch)
+            lastWeeklyResetAlertMinutes = UserDefaults.standard.integer(forKey: "reset_alert_weekly_lead")
+        }
         // Default shortcut to enabled if not previously set
         if UserDefaults.standard.object(forKey: "shortcut_enabled") == nil {
             shortcutEnabled = true
@@ -528,6 +541,7 @@ class UsageManager: ObservableObject {
         lastWeeklyResetAlertMinutes = 0
         trackedSessionResetsAt = nil
         trackedWeeklyResetsAt = nil
+        persistResetAlertState()
         UserDefaults.standard.set(0, forKey: "last_notified_threshold")
 
         // Update status bar to show 0%
@@ -946,36 +960,53 @@ class UsageManager: ObservableObject {
         let leadTimes = [60, 30] // minutes before reset
 
         // Reset tracking when the reset date changes (new window)
+        var stateChanged = false
         if sessionResetsAt != trackedSessionResetsAt {
             trackedSessionResetsAt = sessionResetsAt
             lastSessionResetAlertMinutes = 0
+            stateChanged = true
         }
         if weeklyResetsAt != trackedWeeklyResetsAt {
             trackedWeeklyResetsAt = weeklyResetsAt
             lastWeeklyResetAlertMinutes = 0
+            stateChanged = true
         }
 
-        if let resetsAt = sessionResetsAt {
+        // Only alert when at least half the window's capacity is used; below
+        // that the "use remaining capacity" nudge is noise.
+        if let resetsAt = sessionResetsAt, sessionUsage >= 50 {
             let minutesLeft = Int(resetsAt.timeIntervalSinceNow / 60)
             for lead in leadTimes {
                 if minutesLeft <= lead && lastSessionResetAlertMinutes != lead && (lastSessionResetAlertMinutes == 0 || lastSessionResetAlertMinutes > lead) {
                     sendResetApproachingNotification(label: "5-hour session", minutesLeft: minutesLeft)
                     lastSessionResetAlertMinutes = lead
+                    stateChanged = true
                     break
                 }
             }
         }
 
-        if let resetsAt = weeklyResetsAt {
+        if let resetsAt = weeklyResetsAt, weeklyUsage >= 50 {
             let minutesLeft = Int(resetsAt.timeIntervalSinceNow / 60)
             for lead in leadTimes {
                 if minutesLeft <= lead && lastWeeklyResetAlertMinutes != lead && (lastWeeklyResetAlertMinutes == 0 || lastWeeklyResetAlertMinutes > lead) {
                     sendResetApproachingNotification(label: "weekly", minutesLeft: minutesLeft)
                     lastWeeklyResetAlertMinutes = lead
+                    stateChanged = true
                     break
                 }
             }
         }
+
+        if stateChanged { persistResetAlertState() }
+    }
+
+    // Persisted so a relaunch inside the final hour doesn't re-alert.
+    private func persistResetAlertState() {
+        UserDefaults.standard.set(trackedSessionResetsAt?.timeIntervalSinceReferenceDate ?? 0, forKey: "reset_alert_session_epoch")
+        UserDefaults.standard.set(lastSessionResetAlertMinutes, forKey: "reset_alert_session_lead")
+        UserDefaults.standard.set(trackedWeeklyResetsAt?.timeIntervalSinceReferenceDate ?? 0, forKey: "reset_alert_weekly_epoch")
+        UserDefaults.standard.set(lastWeeklyResetAlertMinutes, forKey: "reset_alert_weekly_lead")
     }
 
     func sendResetApproachingNotification(label: String, minutesLeft: Int) {
